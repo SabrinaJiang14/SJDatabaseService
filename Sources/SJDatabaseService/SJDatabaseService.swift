@@ -6,7 +6,6 @@ import SJUtil
 
 public class SJDatabaseService :NSObject {
     
-
     override init() {
         super.init()
     }
@@ -28,12 +27,77 @@ extension SJDatabaseService: DatabaseProtocol {
         completed(Array(objects))
     }
     
-    func loadById<T:JSONCodable&Object>(id:String, completed:(([T]) -> Void)){ }
-    func updateByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){ }
-    func updateByObjects<T:JSONCodable&Object>(object:[T], completed:(() -> Void)){ }
-    func deleteByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){ }
-    func deleteByID<T:JSONCodable&Object>(object:T, id:String, completed:(() -> Void)){ }
-    func deleteAll(completed:(() -> Void)){ }
+    func loadById<T:JSONCodable&Object>(id:String, completed:((T) -> Void)){
+        let localRealm = try! Realm()
+        if let object = localRealm.objects(T.self).filter("id == %@", id).first {
+            completed(object)
+        }
+    }
+    
+    func updateByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){
+        let realm = try! Realm()
+        do {
+            try realm.write{
+                realm.add(object, update: .all)
+                completed()
+            }
+        } catch {
+            print(error.localizedDescription)
+        }
+    }
+    
+    func updateByObjects<T:JSONCodable&Object>(objects:[T], completed:(() -> Void)){
+        let realm = try! Realm()
+        do {
+            realm.beginWrite()
+            for obj in objects {
+                realm.add(obj, update: .all)
+            }
+            try realm.commitWrite()
+            completed()
+        } catch {
+            print(error.localizedDescription)
+        }
+    }
+    
+    func deleteByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){
+        let realm = try! Realm()
+        let objects = realm.objects(T.self)
+        do {
+            try realm.write{
+                realm.delete(objects)
+                completed()
+            }
+        } catch {
+            print(error.localizedDescription)
+        }
+    }
+    
+    func deleteByID<T:JSONCodable&Object>(object:T, id:String, completed:(() -> Void)){
+        let realm = try! Realm()
+        if let primaryKey = T.primaryKey(), let obj = realm.objects(T.self).filter("%K = %@", primaryKey, id).first {
+            do{
+                try realm.write {
+                    realm.delete(obj)
+                    completed()
+                }
+            }catch{
+                Log.debug(error.localizedDescription)
+            }
+        }
+    }
+    
+    func deleteAll(completed:(() -> Void)){
+        let realm = try! Realm()
+        do{
+            try realm.write {
+                realm.deleteAll()
+                completed()
+            }
+        }catch{
+            Log.debug(error.localizedDescription)
+        }
+    }
 }
 
 class TestObject: Object, JSONCodable {
@@ -46,9 +110,9 @@ class TestObject: Object, JSONCodable {
 
 public extension DatabaseProtocol {
     func loadByObject<T:JSONCodable&Object>(completed:(([T]) -> Void)){ }
-    func loadById<T:JSONCodable&Object>(id:String, completed:(([T]) -> Void)){ }
+    func loadById<T:JSONCodable&Object>(id:String, completed:((T) -> Void)){ }
     func updateByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){ }
-    func updateByObjects<T:JSONCodable&Object>(object:[T], completed:(() -> Void)){ }
+    func updateByObjects<T:JSONCodable&Object>(objects:[T], completed:(() -> Void)){ }
     func deleteByObject<T:JSONCodable&Object>(object:T, completed:(() -> Void)){ }
     func deleteByID<T:JSONCodable&Object>(object:T, id:String, completed:(() -> Void)){ }
     func deleteAll(completed:(() -> Void)){ }
